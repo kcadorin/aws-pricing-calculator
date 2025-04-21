@@ -1,0 +1,21 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# AWS Price Calculator - Overview
+
+This project is a Streamlit application to estimate AWS service costs and generate spending forecasts.
+
+## Main Files
+- [run.py](mdc:run.py): Main script to start the application
+- [src/app.py](mdc:src/app.py): Main Streamlit application interface
+- [src/aws_services.py](mdc:src/aws_services.py): Functions for AWS service price calculations
+- [requirements.txt](mdc:requirements.txt): Project dependencies
+
+## Features
+- Cost estimation for 9 different AWS services
+- Interactive interface to configure specific parameters for each service
+- Cost distribution visualization
+- Comparison with current AWS costs via Cost Explorer
+- Export of results in JSON format

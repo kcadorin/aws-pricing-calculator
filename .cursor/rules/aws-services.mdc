@@ -1,0 +1,37 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Supported AWS Services
+
+The application supports cost calculations for the following AWS services, implemented in [src/aws_services.py](mdc:src/aws_services.py) and made available in the interface in [src/app.py](mdc:src/app.py):
+
+## EC2 (Elastic Compute Cloud)
+- Parameters: instance type, quantity, usage hours, region
+- Support for on-demand instances
+- Estimates based on approximate price tables
+
+## S3 (Simple Storage Service)
+- Parameters: storage amount (GB), storage class
+- Support for Standard, Infrequent Access, and Glacier
+- Calculations for monthly storage
+
+## Lambda (Serverless)
+- Parameters: number of requests, memory, average duration, region
+- Calculations based on GB-second of execution
+- Estimates including free tier requests
+
+## Fargate/ECS (Elastic Container Service)
+- Parameters: vCPUs, memory, usage hours, region
+- Cost estimates for managed containers
+
+## Additional Services
+- CloudWatch (Monitoring)
+- ElastiCache (In-Memory Cache)
+- ECR (Elastic Container Registry)
+- OpenSearch (Search and Analytics)
+- Route 53 (DNS and Domains)
+
+The application allows adding multiple resources of different services to create a total cost estimate.
+

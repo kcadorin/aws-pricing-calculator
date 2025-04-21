@@ -1,0 +1,51 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Setup and Execution
+
+## Requirements
+The [requirements.txt](mdc:requirements.txt) file contains the necessary dependencies:
+- streamlit: for the user interface
+- boto3: for AWS integration
+- pandas: for data manipulation
+- plotly: for visualizations
+- numpy: for numerical calculations
+
+## Installation
+1. Create a virtual environment:
+```bash
+python -m venv venv
+```
+
+2. Activate the virtual environment:
+- Windows: `venv\Scripts\activate`
+- macOS/Linux: `source venv/bin/activate`
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+## Execution
+The application can be started in two ways:
+
+1. Using the [run.py](mdc:run.py) script:
+```bash
+python run.py
+```
+This script checks if the virtual environment is active and installs dependencies if needed.
+
+2. Directly with Streamlit:
+```bash
+streamlit run src/app.py
+```
+
+## User Flow
+1. Select an AWS service in the sidebar menu
+2. Configure the specific parameters
+3. Add the resource to the calculator
+4. Repeat to add more resources
+5. View the total cost and distribution
+6. Export results (optional)
