@@ -46,10 +46,13 @@ def main():
             [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"]
         )
 
+    # Add current directory to Python path to make imports work
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+
     # Start the Streamlit application
-    script_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "src", "app.py"
-    )
+    script_path = os.path.join(current_dir, "src", "app.py")
     subprocess.call(["streamlit", "run", script_path])
 
 

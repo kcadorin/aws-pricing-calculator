@@ -1,6 +1,16 @@
 import boto3
 from decimal import Decimal
 import json
+import os
+import logging
+from aws_static_resources import (
+    mock_aws_pricing,
+    get_ec2_instance_types,
+)  # Import static data
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 # Class to convert Decimal to float (for serialization)
@@ -12,25 +22,81 @@ class DecimalEncoder(json.JSONEncoder):
 
 
 # Function to get prices from the API
-def get_aws_pricing(service_code, filters=None):
-    pricing_client = boto3.client("pricing", region_name="us-east-1")
+def get_aws_pricing(service_code, filters=None, max_results=100):
+    """
+    Obtém preços da API da AWS, ou usa dados estáticos se não houver credenciais disponíveis.
 
+    Args:
+        service_code: Código do serviço AWS (ex: AmazonEC2)
+        filters: Lista de filtros para a API
+        max_results: Número máximo de resultados a retornar
+
+    Returns:
+        Lista de produtos com detalhes de preço
+    """
     if filters is None:
         filters = []
 
     try:
+        # Tentar conectar à API da AWS
+        pricing_client = boto3.client("pricing", region_name="us-east-1")
+
         # Get available services
         response = pricing_client.get_products(
-            ServiceCode=service_code, Filters=filters, MaxResults=100
+            ServiceCode=service_code, Filters=filters, MaxResults=max_results
         )
 
         products = []
         for price_item in response["PriceList"]:
             products.append(json.loads(price_item))
 
+        logger.info(
+            f"Obtidos {len(products)} produtos da API de pricing para {service_code}"
+        )
         return products
     except Exception as e:
-        return {"error": str(e)}
+        # Se houver erro (como credenciais ausentes), usar dados estáticos
+        logger.warning(
+            f"Erro ao acessar a API de pricing: {str(e)}. Usando dados estáticos."
+        )
+        return mock_aws_pricing(service_code)
+
+
+# Function to get EC2 instance types (combining API and static data)
+def get_all_ec2_instance_types():
+    """
+    Retorna uma lista completa de tipos de instância EC2, combinando dados da API e estáticos
+    """
+    # Primeiro tenta obter da API
+    try:
+        api_instances = get_ec2_instances_from_api()
+        if api_instances and len(api_instances) > 0:
+            return api_instances
+    except Exception as e:
+        logger.warning(f"Não foi possível obter tipos de instância da API: {str(e)}")
+
+    # Se a API falhar, usa dados estáticos
+    return get_ec2_instance_types()
+
+
+def get_ec2_instances_from_api():
+    """
+    Tenta obter tipos de instância EC2 da API
+    """
+    products = get_aws_pricing("AmazonEC2")
+
+    if isinstance(products, dict) and "error" in products:
+        return []
+
+    # Conjunto para armazenar tipos únicos de instâncias
+    instance_types = set()
+
+    # Extrair tipos de instâncias dos produtos retornados
+    for product in products:
+        if "attributes" in product and "instanceType" in product["attributes"]:
+            instance_types.add(product["attributes"]["instanceType"])
+
+    return sorted(list(instance_types))
 
 
 # Generic function to estimate prices
@@ -483,3 +549,140 @@ def estimate_route53(params):
         "query_cost": query_cost,
         "total_price": total_cost,
     }
+
+
+def get_ec2_price(
+    instance_type: str,
+    region: str = "us-east-1",
+    os: str = "Linux",
+    hours_per_month: float = 730,
+) -> dict:
+    """
+    Calcula o preço mensal de uma instância EC2.
+    Se não conseguir acessar a API da AWS, usa dados estáticos.
+
+    Args:
+        instance_type: Tipo de instância EC2 (ex: t2.micro)
+        region: Região AWS (default: us-east-1)
+        os: Sistema operacional (default: Linux)
+        hours_per_month: Horas de uso por mês (default: 730)
+
+    Returns:
+        dict: Informações de preço com custo mensal estimado
+    """
+    try:
+        filters = [
+            {"Type": "TERM_MATCH", "Field": "instanceType", "Value": instance_type},
+            {"Type": "TERM_MATCH", "Field": "regionCode", "Value": region},
+            {"Type": "TERM_MATCH", "Field": "operatingSystem", "Value": os},
+            {"Type": "TERM_MATCH", "Field": "preInstalledSw", "Value": "NA"},
+            {"Type": "TERM_MATCH", "Field": "tenancy", "Value": "Shared"},
+            {"Type": "TERM_MATCH", "Field": "capacitystatus", "Value": "Used"},
+        ]
+
+        products = get_aws_pricing("AmazonEC2", filters)
+
+        if not products:
+            raise ValueError(
+                f"Nenhum produto encontrado para a instância {instance_type}"
+            )
+
+        product = products[0]
+        price_per_hour = float(product.get("onDemandPrice", 0))
+
+        return {
+            "instance_type": instance_type,
+            "region": region,
+            "operating_system": os,
+            "price_per_hour": price_per_hour,
+            "hours_per_month": hours_per_month,
+            "monthly_cost": price_per_hour * hours_per_month,
+            "source": "aws_api",
+        }
+    except Exception as e:
+        logging.warning(
+            f"Erro ao obter preço via API: {str(e)}. Usando dados estáticos."
+        )
+
+        # Usar dados estáticos de mock
+        from static.mock_aws_pricing import EC2_PRICE_DATA
+
+        # Procurar o preço nos dados estáticos
+        price_key = f"{region}:{instance_type}:{os}"
+        if price_key in EC2_PRICE_DATA:
+            price_per_hour = EC2_PRICE_DATA[price_key]
+            return {
+                "instance_type": instance_type,
+                "region": region,
+                "operating_system": os,
+                "price_per_hour": price_per_hour,
+                "hours_per_month": hours_per_month,
+                "monthly_cost": price_per_hour * hours_per_month,
+                "source": "static_data",
+            }
+        else:
+            # Se não encontrar dados específicos, usar um cálculo aproximado baseado
+            # no tipo de instância (isso é uma simplificação)
+            price_per_hour = 0.0
+
+            # Extrai o tipo de instância (t2, m5, etc)
+            instance_family = instance_type.split(".")[0]
+            instance_size = instance_type.split(".")[1]
+
+            # Preços base aproximados por família (muito simplificado)
+            base_prices = {
+                "t2": 0.0116,
+                "t3": 0.0104,
+                "t4g": 0.0084,
+                "m5": 0.096,
+                "m6g": 0.077,
+                "m6i": 0.096,
+                "c5": 0.085,
+                "c6g": 0.068,
+                "c6i": 0.085,
+                "r5": 0.126,
+                "r6g": 0.101,
+                "r6i": 0.126,
+                "x2": 3.97,
+                "z1d": 0.24,
+                # Adicione mais famílias conforme necessário
+            }
+
+            # Multiplicadores de tamanho
+            size_multipliers = {
+                "nano": 0.25,
+                "micro": 0.5,
+                "small": 1,
+                "medium": 2,
+                "large": 4,
+                "xlarge": 8,
+                "2xlarge": 16,
+                "4xlarge": 32,
+                "8xlarge": 64,
+                "16xlarge": 128,
+                "32xlarge": 256,
+            }
+
+            # Obter preço base para a família ou usar um valor padrão
+            base_price = base_prices.get(instance_family, 0.05)
+
+            # Obter multiplicador para o tamanho ou usar um valor padrão
+            multiplier = 1
+            for size_name, size_value in size_multipliers.items():
+                if size_name in instance_size:
+                    multiplier = size_value
+                    break
+
+            # Calcular preço aproximado
+            price_per_hour = base_price * multiplier
+
+            return {
+                "instance_type": instance_type,
+                "region": region,
+                "operating_system": os,
+                "price_per_hour": price_per_hour,
+                "hours_per_month": hours_per_month,
+                "monthly_cost": price_per_hour * hours_per_month,
+                "source": "estimated_data",
+                "note": "Preço estimado baseado no tipo de instância, pode não ser preciso",
+            }

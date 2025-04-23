@@ -124,8 +124,87 @@ st.header(f"Configure {selected_service}")
 # Specific logic for each service
 if selected_service == "EC2":
     # Configuration for EC2
-    instance_types = ["t3.micro", "t3.small", "t3.medium", "m5.large", "c5.large"]
-    instance_type = st.selectbox("Instance Type", instance_types)
+    instance_types = [
+        # General Purpose
+        "t3.nano",
+        "t3.micro",
+        "t3.small",
+        "t3.medium",
+        "t3.large",
+        "t3.xlarge",
+        "t3.2xlarge",
+        "t4g.nano",
+        "t4g.micro",
+        "t4g.small",
+        "t4g.medium",
+        "t4g.large",
+        "t4g.xlarge",
+        "t4g.2xlarge",
+        "m5.large",
+        "m5.xlarge",
+        "m5.2xlarge",
+        "m5.4xlarge",
+        "m5.8xlarge",
+        "m5.12xlarge",
+        "m5.16xlarge",
+        "m5.24xlarge",
+        "m6g.medium",
+        "m6g.large",
+        "m6g.xlarge",
+        "m6g.2xlarge",
+        "m6g.4xlarge",
+        "m6g.8xlarge",
+        "m6g.12xlarge",
+        "m6g.16xlarge",
+        # Compute Optimized
+        "c5.large",
+        "c5.xlarge",
+        "c5.2xlarge",
+        "c5.4xlarge",
+        "c5.9xlarge",
+        "c5.12xlarge",
+        "c5.18xlarge",
+        "c5.24xlarge",
+        "c6g.medium",
+        "c6g.large",
+        "c6g.xlarge",
+        "c6g.2xlarge",
+        "c6g.4xlarge",
+        "c6g.8xlarge",
+        "c6g.12xlarge",
+        "c6g.16xlarge",
+        # Memory Optimized
+        "r5.large",
+        "r5.xlarge",
+        "r5.2xlarge",
+        "r5.4xlarge",
+        "r5.8xlarge",
+        "r5.12xlarge",
+        "r5.16xlarge",
+        "r5.24xlarge",
+        "r6g.medium",
+        "r6g.large",
+        "r6g.xlarge",
+        "r6g.2xlarge",
+        "r6g.4xlarge",
+        "r6g.8xlarge",
+        "r6g.12xlarge",
+        "r6g.16xlarge",
+        # Accelerated Computing
+        "p3.2xlarge",
+        "p3.8xlarge",
+        "p3.16xlarge",
+        "g4dn.xlarge",
+        "g4dn.2xlarge",
+        "g4dn.4xlarge",
+        "g4dn.8xlarge",
+        "g4dn.16xlarge",
+    ]
+
+    # Use a select box with adjustable height
+    instance_type = st.selectbox(
+        "Instance Type", instance_types, help="Select the EC2 instance type"
+    )
 
     regions = ["us-east-1", "us-west-2", "eu-west-1", "sa-east-1"]
     region = st.selectbox("Region", regions)
@@ -210,8 +289,11 @@ elif selected_service == "Lambda":
     requests_millions = st.number_input(
         "Number of Requests (millions per month)", min_value=0.1, value=1.0, step=0.1
     )
+
+    # Improve memory options display
     memory_options = [128, 256, 512, 1024, 2048, 4096, 8192, 10240]
-    memory_mb = st.selectbox("Memory (MB)", memory_options)
+    memory_mb = st.select_slider("Memory (MB)", options=memory_options, value=128)
+
     avg_duration_ms = st.number_input("Average Duration (ms)", min_value=1, value=100)
 
     regions = ["us-east-1", "us-west-2", "eu-west-1", "sa-east-1"]
